@@ -22,7 +22,10 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
             "message": issue["message"],
             "severity": issue["severity"],
             "type": issue["type"],
-            "line": issue["line"],
+            "startline": issue["textRange"]["startLine"],
+            "endline": issue["textRange"]["endLine"],
+            "startoffset": issue["textRange"]["startOffset"],
+            "endoffset": issue["textRange"]["endOffset"],
             "rule": issue["rule"],
             "effort": issue["effort"]
         }
@@ -32,12 +35,12 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
 def format_issues(issues: dict, document: str) -> None:
     severities = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
     amounts = {severity: 0 for severity in severities}
-    table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Line</th><th>Rule</th><th>Effort</th></tr>"
+    table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     for severity in severities:
         for key, issue in issues.items():
             if issue["severity"] == severity:
                 amounts[severity] += 1
-                table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>{issue['line']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
+                table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
     table += "</table>"
     severity_table = "<table class='small'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in severities:
