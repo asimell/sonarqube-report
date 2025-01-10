@@ -54,6 +54,7 @@ def format_issues(issues: dict, document: str) -> None:
     severity_table = "<table class='small'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in severities:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
+    severity_table += "</table>"
     document = document.replace("${ISSUES}", table)
     document = document.replace("${SUMMARY}", severity_table)
     with open("report.html", "w") as f:
