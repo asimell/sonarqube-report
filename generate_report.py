@@ -19,6 +19,9 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
     while p <= total_pages:
         url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}"
         resp = requests.get(url, headers=headers)
+        if resp.status_code != 200:
+            print(f"Failed to fetch issues: {resp.text}")
+            sys.exit(1)
         data = resp.json()
         for issue in data["issues"]:
             issues[issue["key"]] = {
@@ -64,5 +67,3 @@ if __name__ == "__main__":
 
     document = document.replace("${DATE}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     format_issues(data, document)
-
-    sys.exit(0)
