@@ -8,7 +8,7 @@ def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
     args.add_argument("--project-id", help="SonarQube Project ID")
     args.add_argument("--token", help="SonarQube API Token")
-    args.add_argument("--host", help="SonarQube Host", default="http://localhost:9900")
+    args.add_argument("--host", help="SonarQube Host", default="http://localhost:9000")
     return args
 
 def fetch_issues(host: str, project_id: str, token: str) -> dict:
