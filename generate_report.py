@@ -1,7 +1,8 @@
 import sys
 import argparse
-import json
 import requests
+from datetime import datetime
+import math
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -11,24 +12,29 @@ def create_args() -> argparse.ArgumentParser:
     return args
 
 def fetch_issues(host: str, project_id: str, token: str) -> dict:
-    url = f"{host}/api/issues/search?componentKeys={project_id}"
-    headers = {"Authorization": f"Basic {token}"}
-    resp = requests.get(url, headers=headers)
-    data = resp.json()
+    p = 1
+    total_pages = 1
     issues = {}
-    for issue in data["issues"]:
-        issues[issue["key"]] = {
-            "component": issue["component"],
-            "message": issue["message"],
-            "severity": issue["severity"],
-            "type": issue["type"],
-            "startline": issue["textRange"]["startLine"],
-            "endline": issue["textRange"]["endLine"],
-            "startoffset": issue["textRange"]["startOffset"],
-            "endoffset": issue["textRange"]["endOffset"],
-            "rule": issue["rule"],
-            "effort": issue["effort"]
-        }
+    headers = {"Authorization": f"Basic {token}"}
+    while p <= total_pages:
+        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}"
+        resp = requests.get(url, headers=headers)
+        data = resp.json()
+        for issue in data["issues"]:
+            issues[issue["key"]] = {
+                "component": issue["component"],
+                "message": issue["message"],
+                "severity": issue["severity"],
+                "type": issue["type"],
+                "startline": issue["textRange"]["startLine"],
+                "endline": issue["textRange"]["endLine"],
+                "startoffset": issue["textRange"]["startOffset"],
+                "endoffset": issue["textRange"]["endOffset"],
+                "rule": issue["rule"],
+                "effort": issue["effort"]
+            }
+        total_pages = math.ceil(data["total"] / data["ps"])
+        p += 1
 
     return issues
 
@@ -56,6 +62,7 @@ if __name__ == "__main__":
     with open("report_template.html") as f:
         document = f.read()
 
+    document = document.replace("${DATE}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     format_issues(data, document)
 
     sys.exit(0)
