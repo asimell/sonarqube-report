@@ -3,6 +3,7 @@ import argparse
 import requests
 from datetime import datetime
 import math
+import html
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -17,7 +18,7 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
     issues = {}
     headers = {"Authorization": f"Basic {token}"}
     while p <= total_pages:
-        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}"
+        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED"
         resp = requests.get(url, headers=headers)
         if resp.status_code != 200:
             print(f"Failed to fetch issues: {resp.text}")
@@ -26,7 +27,7 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
         for issue in data["issues"]:
             issues[issue["key"]] = {
                 "component": issue["component"],
-                "message": issue["message"],
+                "message": html.escape(issue["message"]),
                 "severity": issue["severity"],
                 "type": issue["type"],
                 "startline": issue["textRange"]["startLine"],
