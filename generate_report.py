@@ -18,7 +18,7 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
     issues = {}
     headers = {"Authorization": f"Basic {token}"}
     while p <= total_pages:
-        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED"
+        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED&branch=main"
         resp = requests.get(url, headers=headers)
         if resp.status_code != 200:
             print(f"Failed to fetch issues: {resp.text}")
@@ -28,7 +28,7 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
             issues[issue["key"]] = {
                 "component": issue["component"],
                 "message": html.escape(issue["message"]),
-                "severity": issue["severity"],
+                "severity": issue["impacts"][0]["severity"],
                 "type": issue["type"],
                 "startline": issue["textRange"]["startLine"],
                 "endline": issue["textRange"]["endLine"],
@@ -45,7 +45,7 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
 def format_issues(issues: dict, project_id: str) -> str:
     with open("issues_table_template.html") as f:
         document = f.read()
-    severities = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
+    severities = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
     amounts = {severity: 0 for severity in severities}
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     for severity in severities:
