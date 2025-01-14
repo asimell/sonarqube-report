@@ -73,8 +73,10 @@ def format_overall(total_effort: int, total_debt: int, total_amounts: dict) -> s
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(total_amounts.values()))
     severity_table += "</table>"
 
+    effort = str(total_effort // 60) + "h " + str(total_effort % 60) + "min"
+    debt = str(total_debt // 60) + "h " + str(total_debt % 60) + "min"
     total_table = "<table class='small total'><tr><th>Total Effort</th><th>Total Debt</th></tr>"
-    total_table += f"<tr><td>{total_effort}</td><td>{total_debt}</td></tr> </table>"
+    total_table += f"<tr><td>{effort}</td><td>{debt}</td></tr> </table>"
     document = document.replace("${SEVERITIES}", severity_table)
     document = document.replace("${TOTAL_AMOUNTS}", total_table)
 
