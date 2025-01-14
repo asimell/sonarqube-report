@@ -52,9 +52,10 @@ def format_issues(issues: dict, document: str) -> None:
                 amounts[severity] += 1
                 table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
     table += "</table>"
-    severity_table = "<table class='small'><tr><th>Severity</th><th>Amount</th></tr>"
+    severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in severities:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
+    severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
     severity_table += "</table>"
     document = document.replace("${ISSUES}", table)
     document = document.replace("${SUMMARY}", severity_table)
