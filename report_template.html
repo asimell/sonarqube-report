@@ -56,10 +56,27 @@
         .severities tr:last-child {
             border-top: 5px double #000;
         }
+        * {
+        box-sizing: border-box;
+        }
+        /* Create a two-column layout */
+        .column {
+        float: left;
+        width: 50%;
+        padding: 5px;
+        }
+
+        /* Clearfix (clear floats) */
+        .row::after {
+        content: "";
+        clear: both;
+        display: table;
+        }
     </style>
 </head>
 <body>
     <h1>SonarQube Report - ${DATE}</h1>
+    ${OVERALL}
     ${CONTENTS}
 </body>
 </html>
