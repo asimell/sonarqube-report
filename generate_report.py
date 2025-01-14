@@ -7,7 +7,7 @@ import html
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
-    args.add_argument("--project-id", help="SonarQube Project ID")
+    args.add_argument("--project-id", "-p", help="SonarQube Project ID", nargs="+")
     args.add_argument("--token", help="SonarQube API Token")
     args.add_argument("--host", help="SonarQube Host", default="http://localhost:9000")
     return args
@@ -49,7 +49,7 @@ def format_issues(issues: dict, project_id: str) -> str:
     amounts = {severity: 0 for severity in severities}
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     for severity in severities:
-        for key, issue in issues.items():
+        for _, issue in issues.items():
             if issue["severity"] == severity:
                 amounts[severity] += 1
                 table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
@@ -64,15 +64,21 @@ def format_issues(issues: dict, project_id: str) -> str:
     document = document.replace("${SUMMARY}", severity_table)
     return document
 
+
+
 if __name__ == "__main__":
     args = create_args().parse_args()
-    data = fetch_issues(args.host, args.project_id, args.token)
+
+    issues_data = ""
+    for project_key in args.project_id:
+        print(project_key)
+        data = fetch_issues(args.host, project_key, args.token)
+        issues_data += format_issues(data, project_key)
+
     with open("report_template.html") as f:
         document = f.read()
-
     document = document.replace("${DATE}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    issue_data = format_issues(data, args.project_id)
-    document = document.replace("${CONTENTS}", issue_data)
+    document = document.replace("${CONTENTS}", issues_data)
 
     with open("report.html", "w") as f:
         f.write(document)
