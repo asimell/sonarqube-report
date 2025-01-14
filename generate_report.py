@@ -42,7 +42,9 @@ def fetch_issues(host: str, project_id: str, token: str) -> dict:
 
     return issues
 
-def format_issues(issues: dict, document: str) -> None:
+def format_issues(issues: dict, project_id: str) -> str:
+    with open("issues_table_template.html") as f:
+        document = f.read()
     severities = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
     amounts = {severity: 0 for severity in severities}
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
@@ -57,10 +59,10 @@ def format_issues(issues: dict, document: str) -> None:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
     severity_table += "</table>"
+    document = document.replace("${PROJECT_ID}", project_id)
     document = document.replace("${ISSUES}", table)
     document = document.replace("${SUMMARY}", severity_table)
-    with open("report.html", "w") as f:
-        f.write(document)
+    return document
 
 if __name__ == "__main__":
     args = create_args().parse_args()
@@ -69,4 +71,8 @@ if __name__ == "__main__":
         document = f.read()
 
     document = document.replace("${DATE}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-    format_issues(data, document)
+    issue_data = format_issues(data, args.project_id)
+    document = document.replace("${CONTENTS}", issue_data)
+
+    with open("report.html", "w") as f:
+        f.write(document)
