@@ -4,19 +4,15 @@ import requests
 from datetime import datetime
 import math
 import html
+import json
 
 # TODO: Per project metrics: loc, security hotspots (incl. categories), issue categories, techincal debt
     # ncloc
     # security_hotspots
 
-# TODO: Check if dashboard ratings can be exported
-    # reliability_rating
-    # security_rating
-    # sqale_rating (maintainability)
-    # security_hotspots_reviewed
-
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
+PERCENTAGE_METRICS = ["security_hotspots_reviewed", "line_coverage"]
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -43,6 +39,11 @@ def _get_metric_name_from_key(key: str, metrics: list) -> str:
         if metric["key"] == key:
             return metric["name"]
     return key
+
+def _convert_to_readable_time(minutes: int) -> str:
+    if minutes >= 60:
+        return str(minutes // 60) + "h " + str(minutes % 60) + "min"
+    return str(minutes) + "min"
 
 ############################################
 # DATA FETCHING
@@ -76,15 +77,19 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
     return project_issues, data["effortTotal"], data["debtTotal"]
 
 def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
-    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed&additionalFields=metrics"
+    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index&additionalFields=metrics"
     data = _get(url, token)
+    with open("data.json", "w") as f:
+        f.write(json.dumps(data))
     metrics = {}
     for metric in data["component"]["measures"]:
         name = _get_metric_name_from_key(metric["metric"], data["metrics"])
         if metric["metric"] in CONVERT_TO_GRADES:
             metrics[name] = _convert_to_grade(metric["value"])
-        elif metric["metric"] == "security_hotspots_reviewed":
+        elif metric["metric"] in PERCENTAGE_METRICS:
             metrics[name] = f"{metric['value']}%"
+        elif metric["metric"] == "sqale_index":
+            metrics[name] = _convert_to_readable_time(int(metric["value"]))
         else:
             metrics[name] = metric["value"]
     return {"metrics": metrics}
@@ -145,8 +150,8 @@ def format_overall(total_effort: int, total_debt: int, total_amounts: dict) -> s
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(total_amounts.values()))
     severity_table += "</table>"
 
-    effort = str(total_effort // 60) + "h " + str(total_effort % 60) + "min"
-    debt = str(total_debt // 60) + "h " + str(total_debt % 60) + "min"
+    effort = _convert_to_readable_time(total_effort)
+    debt = _convert_to_readable_time(total_debt)
     total_table = "<table class='small total'><tr><th>Total Effort</th><th>Total Debt</th></tr>"
     total_table += f"<tr><td>{effort}</td><td>{debt}</td></tr> </table>"
     document = document.replace("${SEVERITIES}", severity_table)
