@@ -4,6 +4,11 @@ import requests
 from datetime import datetime
 import math
 import html
+
+# TODO: Per project metrics: loc, security hotspots (incl. categories), issue categories, techincal debt
+# TODO: Check if dashboard ratings can be exported
+# TODO: Parse "/" from components
+
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 
 def create_args() -> argparse.ArgumentParser:
@@ -11,9 +16,11 @@ def create_args() -> argparse.ArgumentParser:
     args.add_argument("--project-id", "-p", help="SonarQube Project ID", nargs="+")
     args.add_argument("--token", help="SonarQube API Token")
     args.add_argument("--host", help="SonarQube Host", default="http://localhost:9000")
+    args.add_argument("--include-issue-details", help="Include issue details in the report", action="store_true")
+    args.add_argument("--anonymous", help="Anonymize project names", action="store_true")
     return args
 
-def fetch_issues(host: str, project_id: str, token: str) -> {dict, int, int}:
+def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {dict, int, int}:
     p = 1
     total_pages = 1
     issues = {}
@@ -26,6 +33,8 @@ def fetch_issues(host: str, project_id: str, token: str) -> {dict, int, int}:
             sys.exit(1)
         data = resp.json()
         for issue in data["issues"]:
+            if anonymous:
+                issue["component"] = issue["component"].split(":", maxsplit=1)[1].split("/")[-1]
             issues[issue["key"]] = {
                 "component": issue["component"],
                 "message": html.escape(issue["message"]),
@@ -43,24 +52,30 @@ def fetch_issues(host: str, project_id: str, token: str) -> {dict, int, int}:
 
     return issues, data["effortTotal"], data["debtTotal"]
 
-def format_issues(issues: dict, project_id: str) -> {str, dict}:
+def format_issues(issues: dict, project_id: str, include_issue_details: bool) -> {str, dict}:
     with open("issues_table_template.html") as f:
         document = f.read()
     amounts = {severity: 0 for severity in SEVERITIES}
-    table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
+    if include_issue_details:
+        table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     for severity in SEVERITIES:
         for _, issue in issues.items():
             if issue["severity"] == severity:
                 amounts[severity] += 1
-                table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
-    table += "</table>"
+                if include_issue_details:
+                    table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
+    if include_issue_details:
+        table += "</table>"
     severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in SEVERITIES:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
     severity_table += "</table>"
     document = document.replace("${PROJECT_ID}", project_id)
-    document = document.replace("${ISSUES}", table)
+    if include_issue_details:
+        document = document.replace("${ISSUES}", table)
+    else:
+        document = document.replace("${ISSUES}", "")
     document = document.replace("${SUMMARY}", severity_table)
     return document, amounts
 
@@ -91,10 +106,15 @@ if __name__ == "__main__":
     total_debt = 0
     total_amounts = {severity: 0 for severity in SEVERITIES}
 
+    project_counter = 1 # For anonymizing project names
     for project_key in args.project_id:
         print(project_key)
-        data, effort, debt = fetch_issues(args.host, project_key, args.token)
-        t, amounts = format_issues(data, project_key)
+        data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous)
+        if args.anonymous:
+            project_key = f"Project {project_counter}"
+            print(f"==> {project_key}")
+            project_counter += 1
+        t, amounts = format_issues(data, project_key, args.include_issue_details)
         total_effort += effort
         total_debt += debt
         for severity in SEVERITIES:
