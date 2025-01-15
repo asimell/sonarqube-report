@@ -6,8 +6,6 @@ import math
 import html
 import json
 
-# TODO: Per project metrics: security hotspots (incl. categories), issue categories
-
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
 PERCENTAGE_METRICS = ["security_hotspots_reviewed", "line_coverage"]
