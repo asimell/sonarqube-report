@@ -6,10 +6,17 @@ import math
 import html
 
 # TODO: Per project metrics: loc, security hotspots (incl. categories), issue categories, techincal debt
+    # ncloc
+    # security_hotspots
+
 # TODO: Check if dashboard ratings can be exported
-# TODO: Parse "/" from components
+    # reliability_rating
+    # security_rating
+    # sqale_rating (maintainability)
+    # security_hotspots_reviewed
 
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
+CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -20,18 +27,34 @@ def create_args() -> argparse.ArgumentParser:
     args.add_argument("--anonymous", help="Anonymize project names", action="store_true")
     return args
 
+def _get(url: str, token: str) -> {dict}:
+    headers = {"Authorization": f"Basic {token}"}
+    resp = requests.get(url, headers=headers)
+    if resp.status_code != 200:
+        print(f"Failed to fetch data: {resp.text}")
+        sys.exit(1)
+    return resp.json()
+
+def _convert_to_grade(rating: str) -> str:
+    return chr(ord("A") + int(float(rating)) - 1)
+
+def _get_metric_name_from_key(key: str, metrics: list) -> str:
+    for metric in metrics:
+        if metric["key"] == key:
+            return metric["name"]
+    return key
+
+############################################
+# DATA FETCHING
+############################################
+
 def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {dict, int, int}:
     p = 1
     total_pages = 1
     issues = {}
-    headers = {"Authorization": f"Basic {token}"}
     while p <= total_pages:
         url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED&branch=main"
-        resp = requests.get(url, headers=headers)
-        if resp.status_code != 200:
-            print(f"Failed to fetch issues: {resp.text}")
-            sys.exit(1)
-        data = resp.json()
+        data = _get(url, token)
         for issue in data["issues"]:
             if anonymous:
                 issue["component"] = issue["component"].split(":", maxsplit=1)[1].split("/")[-1]
@@ -49,8 +72,25 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
             }
         total_pages = math.ceil(data["total"] / data["ps"])
         p += 1
+    project_issues = {"issues": issues}
+    return project_issues, data["effortTotal"], data["debtTotal"]
 
-    return issues, data["effortTotal"], data["debtTotal"]
+def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
+    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed&additionalFields=metrics"
+    data = _get(url, token)
+    metrics = {}
+    for metric in data["component"]["measures"]:
+        name = _get_metric_name_from_key(metric["metric"], data["metrics"])
+        if metric["metric"] in CONVERT_TO_GRADES:
+            metrics[name] = _convert_to_grade(metric["value"])
+        else:
+            metrics[name] = metric["value"]
+    return {"metrics": metrics}
+
+
+############################################
+# HTML FORMATTING
+############################################
 
 def format_issues(issues: dict, project_id: str, include_issue_details: bool) -> {str, dict}:
     with open("issues_table_template.html") as f:
@@ -59,24 +99,25 @@ def format_issues(issues: dict, project_id: str, include_issue_details: bool) ->
     if include_issue_details:
         table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     for severity in SEVERITIES:
-        for _, issue in issues.items():
+        for _, issue in issues["issues"].items():
             if issue["severity"] == severity:
                 amounts[severity] += 1
                 if include_issue_details:
                     table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
     if include_issue_details:
         table += "</table>"
+
     severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in SEVERITIES:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
     severity_table += "</table>"
+
     document = document.replace("${PROJECT_ID}", project_id)
-    if include_issue_details:
-        document = document.replace("${ISSUES}", table)
-    else:
-        document = document.replace("${ISSUES}", "")
     document = document.replace("${SUMMARY}", severity_table)
+    if not include_issue_details:
+        table = ""
+    document = document.replace("${ISSUES}", table)
     return document, amounts
 
 def format_overall(total_effort: int, total_debt: int, total_amounts: dict) -> str:
@@ -110,6 +151,9 @@ if __name__ == "__main__":
     for project_key in args.project_id:
         print(project_key)
         data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous)
+        data.update(fetch_metrics(args.host, project_key, args.token))
+
+        # Formatting data
         if args.anonymous:
             project_key = f"Project {project_counter}"
             print(f"==> {project_key}")
