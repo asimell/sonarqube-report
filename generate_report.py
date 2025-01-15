@@ -11,6 +11,7 @@ import json
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
 PERCENTAGE_METRICS = ["security_hotspots_reviewed", "line_coverage"]
+ISSUE_TYPES = ["CODE_SMELL", "BUG", "VULNERABILITY"]
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -98,20 +99,35 @@ def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
 ############################################
 
 def _format_severity_summary(amounts: dict) -> str:
-    severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
+    severity_table = "<table class='small severities'><tr><th></th>"
+    for t in ISSUE_TYPES:
+        severity_table += f"<th>{t}</th>"
+    severity_table += "<th>Total</th></tr>"
+    abs_total = 0
     for severity in SEVERITIES:
-        severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
-    severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
-    severity_table += "</table>"
+        severity_table += f"<tr><td>{severity}</td>"
+        total = 0
+        for t in range(len(ISSUE_TYPES)):
+            severity_table += f"<td>{amounts[severity][t]}</td>"
+            total += amounts[severity][t]
+        abs_total += total
+        severity_table += f"<td><strong>{total}</strong></td></tr>"
+
+    severity_table += "<tr><td><strong>Total</strong></td>"
+    for t in ISSUE_TYPES:
+        severity_table += f"<td><strong>{sum([amounts[severity][ISSUE_TYPES.index(t)] for severity in SEVERITIES])}</strong></td>"
+
+
+    severity_table += f"<td><strong>{abs_total}</strong></td></tr></table>"
     return severity_table
 
 def _format_issue_table(issues: dict) -> {str, dict}:
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
-    amounts = {severity: 0 for severity in SEVERITIES}
+    amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
     for severity in SEVERITIES:
         for _, issue in issues.items():
             if issue["severity"] == severity:
-                amounts[severity] += 1
+                amounts[severity][ISSUE_TYPES.index(issue["type"])] += 1
                 table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
     table += "</table>"
     return table, amounts
@@ -160,7 +176,7 @@ if __name__ == "__main__":
     issues_data = ""
     total_effort = 0
     total_debt = 0
-    total_amounts = {severity: 0 for severity in SEVERITIES}
+    total_amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
 
     project_counter = 1 # For anonymizing project names
     for project_key in args.project_id:
@@ -177,7 +193,8 @@ if __name__ == "__main__":
         total_effort += effort
         total_debt += debt
         for severity in SEVERITIES:
-            total_amounts[severity] += amounts[severity]
+            for x in range (len(ISSUE_TYPES)):
+                total_amounts[severity][x] += amounts[severity][x]
         issues_data += t
 
     overall= format_overall(total_effort, total_debt, total_amounts)
