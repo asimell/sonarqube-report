@@ -83,6 +83,8 @@ def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
         name = _get_metric_name_from_key(metric["metric"], data["metrics"])
         if metric["metric"] in CONVERT_TO_GRADES:
             metrics[name] = _convert_to_grade(metric["value"])
+        elif metric["metric"] == "security_hotspots_reviewed":
+            metrics[name] = f"{metric['value']}%"
         else:
             metrics[name] = metric["value"]
     return {"metrics": metrics}
@@ -92,29 +94,43 @@ def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
 # HTML FORMATTING
 ############################################
 
-def format_issues(issues: dict, project_id: str, include_issue_details: bool) -> {str, dict}:
-    with open("issues_table_template.html") as f:
-        document = f.read()
-    amounts = {severity: 0 for severity in SEVERITIES}
-    if include_issue_details:
-        table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
-    for severity in SEVERITIES:
-        for _, issue in issues["issues"].items():
-            if issue["severity"] == severity:
-                amounts[severity] += 1
-                if include_issue_details:
-                    table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
-    if include_issue_details:
-        table += "</table>"
-
+def _format_severity_summary(amounts: dict) -> str:
     severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
     for severity in SEVERITIES:
         severity_table += f"<tr><td>{severity}</td><td>{amounts[severity]}</td></tr>"
     severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(amounts.values()))
     severity_table += "</table>"
+    return severity_table
+
+def _format_issue_table(issues: dict) -> {str, dict}:
+    table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
+    amounts = {severity: 0 for severity in SEVERITIES}
+    for severity in SEVERITIES:
+        for _, issue in issues.items():
+            if issue["severity"] == severity:
+                amounts[severity] += 1
+                table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
+    table += "</table>"
+    return table, amounts
+
+def _format_measure_table(metrics: dict) -> str:
+    table = "<table><tr><th>Metric</th><th>Value</th></tr>"
+    for metric, value in metrics.items():
+        table += f"<tr><td>{metric}</td><td>{value}</td></tr>"
+    table += "</table>"
+    return table
+
+def format_issues(issues: dict, project_id: str, include_issue_details: bool) -> {str, dict}:
+    with open("issues_table_template.html") as f:
+        document = f.read()
+
+    table, amounts = _format_issue_table(issues["issues"])
+    severity_table = _format_severity_summary(amounts)
+    measure_table = _format_measure_table(issues["metrics"])
 
     document = document.replace("${PROJECT_ID}", project_id)
-    document = document.replace("${SUMMARY}", severity_table)
+    document = document.replace("${SEVERITIES}", severity_table)
+    document = document.replace("${MEASURES}", measure_table)
     if not include_issue_details:
         table = ""
     document = document.replace("${ISSUES}", table)
