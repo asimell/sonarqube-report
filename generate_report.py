@@ -6,9 +6,7 @@ import math
 import html
 import json
 
-# TODO: Per project metrics: loc, security hotspots (incl. categories), issue categories, techincal debt
-    # ncloc
-    # security_hotspots
+# TODO: Per project metrics: security hotspots (incl. categories), issue categories
 
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
@@ -77,7 +75,7 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
     return project_issues, data["effortTotal"], data["debtTotal"]
 
 def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
-    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index&additionalFields=metrics"
+    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index,vulnerabilities&additionalFields=metrics"
     data = _get(url, token)
     with open("data.json", "w") as f:
         f.write(json.dumps(data))
@@ -88,7 +86,7 @@ def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
             metrics[name] = _convert_to_grade(metric["value"])
         elif metric["metric"] in PERCENTAGE_METRICS:
             metrics[name] = f"{metric['value']}%"
-        elif metric["metric"] == "sqale_index":
+        elif metric["metric"] == "sqale_index": # technical debt
             metrics[name] = _convert_to_readable_time(int(metric["value"]))
         else:
             metrics[name] = metric["value"]
@@ -144,16 +142,12 @@ def format_issues(issues: dict, project_id: str, include_issue_details: bool) ->
 def format_overall(total_effort: int, total_debt: int, total_amounts: dict) -> str:
     with open("overall_data_template.html") as f:
         document = f.read()
-    severity_table = "<table class='small severities'><tr><th>Severity</th><th>Amount</th></tr>"
-    for severity in SEVERITIES:
-        severity_table += f"<tr><td>{severity}</td><td>{total_amounts[severity]}</td></tr>"
-    severity_table += "<tr><td><strong>Total</strong></td><td><strong>{}</strong></td></tr>".format(sum(total_amounts.values()))
-    severity_table += "</table>"
+    severity_table = _format_severity_summary(total_amounts)
 
     effort = _convert_to_readable_time(total_effort)
     debt = _convert_to_readable_time(total_debt)
-    total_table = "<table class='small total'><tr><th>Total Effort</th><th>Total Debt</th></tr>"
-    total_table += f"<tr><td>{effort}</td><td>{debt}</td></tr> </table>"
+    totals = {"Total Effort": effort, "Total Debt": debt}
+    total_table = _format_measure_table(totals)
     document = document.replace("${SEVERITIES}", severity_table)
     document = document.replace("${TOTAL_AMOUNTS}", total_table)
 
