@@ -4,7 +4,7 @@ import requests
 from datetime import datetime
 import math
 import html
-import json
+import pathlib
 
 SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
@@ -76,8 +76,6 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
 def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
     url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index,vulnerabilities&additionalFields=metrics"
     data = _get(url, token)
-    with open("data.json", "w") as f:
-        f.write(json.dumps(data))
     metrics = {}
     for metric in data["component"]["measures"]:
         name = _get_metric_name_from_key(metric["metric"], data["metrics"])
@@ -177,7 +175,14 @@ if __name__ == "__main__":
     total_amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
 
     project_counter = 1 # For anonymizing project names
-    for project_key in args.project_id:
+
+    if pathlib.Path(args.project_id[0]).exists():
+        with open(args.project_id[0]) as f:
+            projects = f.read().splitlines()
+    else:
+        projects = args.project_id
+
+    for project_key in projects:
         print(project_key)
         data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous)
         data.update(fetch_metrics(args.host, project_key, args.token))
@@ -205,3 +210,6 @@ if __name__ == "__main__":
 
     with open("report.html", "w") as f:
         f.write(document)
+
+    print(f"{len(projects)} projects analyzed.")
+    print("Report generated successfully")
