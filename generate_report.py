@@ -151,15 +151,12 @@ def format_issues(issues: dict, project_id: str, include_issue_details: bool) ->
     document = document.replace("${ISSUES}", table)
     return document, amounts
 
-def format_overall(total_effort: int, total_debt: int, total_amounts: dict) -> str:
+def format_overall(total_overall: dict, total_severity_amounts: dict) -> str:
     with open("overall_data_template.html") as f:
         document = f.read()
-    severity_table = _format_severity_summary(total_amounts)
+    severity_table = _format_severity_summary(total_severity_amounts)
 
-    effort = _convert_to_readable_time(total_effort)
-    debt = _convert_to_readable_time(total_debt)
-    totals = {"Total Effort": effort, "Total Debt": debt}
-    total_table = _format_measure_table(totals)
+    total_table = _format_measure_table(total_overall)
     document = document.replace("${SEVERITIES}", severity_table)
     document = document.replace("${TOTAL_AMOUNTS}", total_table)
 
@@ -172,7 +169,9 @@ if __name__ == "__main__":
     issues_data = ""
     total_effort = 0
     total_debt = 0
-    total_amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
+    total_hotspots = 0
+    total_loc = 0
+    total_severity_amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
 
     project_counter = 1 # For anonymizing project names
 
@@ -195,12 +194,20 @@ if __name__ == "__main__":
         t, amounts = format_issues(data, project_key, args.include_issue_details)
         total_effort += effort
         total_debt += debt
+        total_hotspots += int(data["metrics"]["Security Hotspots"])
+        total_loc += int(data["metrics"]["Lines of Code"])
+
         for severity in SEVERITIES:
             for x in range (len(ISSUE_TYPES)):
-                total_amounts[severity][x] += amounts[severity][x]
+                total_severity_amounts[severity][x] += amounts[severity][x]
         issues_data += t
 
-    overall= format_overall(total_effort, total_debt, total_amounts)
+    overall_data = {"Total Effort": _convert_to_readable_time(total_effort),
+                    "Total Debt": _convert_to_readable_time(total_debt),
+                    "Security Hotspots": total_hotspots,
+                    "Lines of Code": total_loc}
+
+    overall= format_overall(overall_data, total_severity_amounts)
 
     with open("report_template.html") as f:
         document = f.read()
