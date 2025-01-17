@@ -11,22 +11,32 @@ issues of a given project.
 
 - Python 3.x installed
 - Required Python packages (`pip install -r requirements.txt`)
+  - You can also use the included `Pipfile` to launch a `pipenv` environment.
 
-### Usage
+Using a virtual environment is recommended.
 
-Run the script:
+### Running the Script
+
+Example usage:
 
 ```sh
-token=$(echo -n "<your_token>:" | base64)   # NOTE! the trailing colon (:) is required after your token
-python generate_report.py --project-id <your_project_id> --token $token --host <host>
+$ token=$(echo -n "<your_token>:" | base64)   # NOTE! the trailing colon (:) is required after your token
+$ python generate_report.py --project-id <your_project_id> --token $token --host <host> --include-issue-details
+<your_project_id>
+1 projects analyzed.
+Report generated successfully
 ```
 
 ### Parameters
 
-- `--project-id`: SonarQube Project ID
+- `--project-id`: SonarQube Project ID. Supports a list of project ids separated by a space or a file where each project is on its own line.
 - `--token`: SonarQube API Token base64 encoded
 - `--host`: SonarQube Host (default: `http://localhost:9000`)
+- `--include-issue-details`: Whether to include a detailed table of all the fetched issues or provide just the overall results (default: `false`)
+- `--anonymous`: Whether to replace the repository names with `Project <number>` and parse the full paths of the
+    component and leave just the filename. (default: `false`)
 
 ## Output
 
-The script will generate a report file in the specified output directory.
+The script will generate a report HTML file of SonarQube findings. The HTML file can then be saved as a PDF from the browser by printing it
+and saving as PDF.
