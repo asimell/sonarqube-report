@@ -6,10 +6,12 @@ import math
 import html
 import pathlib
 
-SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
+ISSUE_SEVERITIES = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
+IMPACT_SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
 CONVERT_TO_GRADES = ["reliability_rating", "security_rating", "sqale_rating"]
 PERCENTAGE_METRICS = ["security_hotspots_reviewed", "line_coverage"]
 ISSUE_TYPES = ["CODE_SMELL", "BUG", "VULNERABILITY"]
+IMPACT_TYPES = ["SECURITY", "RELIABILITY", "MAINTAINABILITY"]
 
 def create_args() -> argparse.ArgumentParser:
     args = argparse.ArgumentParser()
@@ -18,6 +20,8 @@ def create_args() -> argparse.ArgumentParser:
     args.add_argument("--host", help="SonarQube Host", default="http://localhost:9000")
     args.add_argument("--include-issue-details", help="Include issue details in the report", action="store_true")
     args.add_argument("--anonymous", help="Anonymize project names", action="store_true")
+    args.add_argument("--impact-severities", help="Use impact severities instead of issue severities", action="store_true")
+    args.add_argument("--impact-qualities", help="Use impact qualities instead of issue types", action="store_true")
     return args
 
 def _get(url: str, token: str) -> {dict}:
@@ -46,7 +50,7 @@ def _convert_to_readable_time(minutes: int) -> str:
 # DATA FETCHING
 ############################################
 
-def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {dict, int, int}:
+def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact_details: bool, impact_qualities: bool) -> {dict, int, int}:
     p = 1
     total_pages = 1
     issues = {}
@@ -56,11 +60,13 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
         for issue in data["issues"]:
             if anonymous:
                 issue["component"] = issue["component"].split(":", maxsplit=1)[1].split("/")[-1]
+            severity = issue["impacts"][0]["severity"] if impact_details else issue["severity"]
+            issue_type = issue["impacts"][0]["softwareQuality"] if impact_qualities else issue["type"]
             issues[issue["key"]] = {
                 "component": issue["component"],
                 "message": html.escape(issue["message"]),
-                "severity": issue["impacts"][0]["severity"],
-                "type": issue["type"],
+                "severity": severity,
+                "type": issue_type,
                 "startline": issue["textRange"]["startLine"],
                 "endline": issue["textRange"]["endLine"],
                 "startoffset": issue["textRange"]["startOffset"],
@@ -71,7 +77,11 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool) -> {di
         total_pages = math.ceil(data["total"] / data["ps"])
         p += 1
     project_issues = {"issues": issues}
-    return project_issues, data["effortTotal"], data["debtTotal"]
+    try:    # Some API version may not have this data
+        debt = data["debtTotal"]
+    except KeyError:
+        debt = data["effortTotal"]
+    return project_issues, data["effortTotal"], debt
 
 def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
     url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index,vulnerabilities&additionalFields=metrics"
@@ -96,22 +106,22 @@ def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
 
 def _format_severity_summary(amounts: dict) -> str:
     severity_table = "<table class='small severities'><tr><th></th>"
-    for t in ISSUE_TYPES:
+    for t in TYPES:
         severity_table += f"<th>{t}</th>"
     severity_table += "<th>Total</th></tr>"
     abs_total = 0
     for severity in SEVERITIES:
         severity_table += f"<tr><td>{severity}</td>"
         total = 0
-        for t in range(len(ISSUE_TYPES)):
+        for t in range(len(TYPES)):
             severity_table += f"<td>{amounts[severity][t]}</td>"
             total += amounts[severity][t]
         abs_total += total
         severity_table += f"<td><strong>{total}</strong></td></tr>"
 
     severity_table += "<tr><td><strong>Total</strong></td>"
-    for t in ISSUE_TYPES:
-        severity_table += f"<td><strong>{sum([amounts[severity][ISSUE_TYPES.index(t)] for severity in SEVERITIES])}</strong></td>"
+    for t in TYPES:
+        severity_table += f"<td><strong>{sum([amounts[severity][TYPES.index(t)] for severity in SEVERITIES])}</strong></td>"
 
 
     severity_table += f"<td><strong>{abs_total}</strong></td></tr></table>"
@@ -119,11 +129,11 @@ def _format_severity_summary(amounts: dict) -> str:
 
 def _format_issue_table(issues: dict) -> {str, dict}:
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
-    amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
+    amounts = {severity: [0 for _ in TYPES] for severity in SEVERITIES}
     for severity in SEVERITIES:
         for _, issue in issues.items():
             if issue["severity"] == severity:
-                amounts[severity][ISSUE_TYPES.index(issue["type"])] += 1
+                amounts[severity][TYPES.index(issue["type"])] += 1
                 table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
     table += "</table>"
     return table, amounts
@@ -166,12 +176,17 @@ def format_overall(total_overall: dict, total_severity_amounts: dict) -> str:
 if __name__ == "__main__":
     args = create_args().parse_args()
 
+    global TYPES
+    global SEVERITIES
+    SEVERITIES = IMPACT_SEVERITIES if args.impact_severities else ISSUE_SEVERITIES
+    TYPES = IMPACT_TYPES if args.impact_qualities else ISSUE_TYPES
+
     issues_data = ""
     total_effort = 0
     total_debt = 0
     total_hotspots = 0
     total_loc = 0
-    total_severity_amounts = {severity: [0 for _ in ISSUE_TYPES] for severity in SEVERITIES}
+    total_severity_amounts = {severity: [0 for _ in TYPES] for severity in SEVERITIES}
 
     project_counter = 1 # For anonymizing project names
 
@@ -183,7 +198,7 @@ if __name__ == "__main__":
 
     for project_key in projects:
         print(project_key)
-        data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous)
+        data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous, args.impact_severities, args.impact_qualities)
         data.update(fetch_metrics(args.host, project_key, args.token))
 
         # Formatting data
@@ -198,7 +213,7 @@ if __name__ == "__main__":
         total_loc += int(data["metrics"]["Lines of Code"])
 
         for severity in SEVERITIES:
-            for x in range (len(ISSUE_TYPES)):
+            for x in range (len(TYPES)):
                 total_severity_amounts[severity][x] += amounts[severity][x]
         issues_data += t
 
