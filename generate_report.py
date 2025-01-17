@@ -84,7 +84,7 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact
     return project_issues, data["effortTotal"], debt
 
 def fetch_metrics(host: str, project_id: str, token: str) -> {dict}:
-    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index,vulnerabilities&additionalFields=metrics"
+    url = f"{host}/api/measures/component?component={project_id}&metricKeys=ncloc,security_hotspots,reliability_rating,security_rating,sqale_rating,security_hotspots_reviewed,sqale_index,vulnerabilities,complexity&additionalFields=metrics"
     data = _get(url, token)
     metrics = {}
     for metric in data["component"]["measures"]:
@@ -186,6 +186,7 @@ if __name__ == "__main__":
     total_debt = 0
     total_hotspots = 0
     total_loc = 0
+    total_complexity = 0
     total_severity_amounts = {severity: [0 for _ in TYPES] for severity in SEVERITIES}
 
     project_counter = 1 # For anonymizing project names
@@ -211,6 +212,10 @@ if __name__ == "__main__":
         total_debt += debt
         total_hotspots += int(data["metrics"]["Security Hotspots"])
         total_loc += int(data["metrics"]["Lines of Code"])
+        try:
+            total_complexity += int(data["metrics"]["Cyclomatic Complexity"])
+        except KeyError:
+            pass
 
         for severity in SEVERITIES:
             for x in range (len(TYPES)):
@@ -220,7 +225,8 @@ if __name__ == "__main__":
     overall_data = {"Total Effort": _convert_to_readable_time(total_effort),
                     "Total Debt": _convert_to_readable_time(total_debt),
                     "Security Hotspots": total_hotspots,
-                    "Lines of Code": total_loc}
+                    "Lines of Code": total_loc,
+                    "Cyclomatic Complexity": total_complexity}
 
     overall= format_overall(overall_data, total_severity_amounts)
 
