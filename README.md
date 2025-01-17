@@ -35,6 +35,10 @@ Report generated successfully
 - `--include-issue-details`: Whether to include a detailed table of all the fetched issues or provide just the overall results (default: `false`)
 - `--anonymous`: Whether to replace the repository names with `Project <number>` and parse the full paths of the
     component and leave just the filename. (default: `false`)
+- `--impact-severities`: Whether to use issue impact severity types (`BLOCKER`, `HIGH`, `MEDIUM`, `LOW`, `INFO`) rather than issue severities
+    (`BLOCKER`, `CRITICAL`, `MAJOR`, `MINOR`, `INFO`)
+- `--impact-qualities`: Whether to use issue impact software qualities (`SECURITY`, `RELIABILITY`, `MAINTAINABILITY`) rather than issue types
+    (`CODE_SMELL`, `BUG`, `VULNERABILITY`)
 
 ## Output
 
