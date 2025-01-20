@@ -4,7 +4,9 @@ import requests
 from datetime import datetime
 import math
 import html
-import pathlib
+from pathlib import Path
+
+TEMPLATES = Path("templates")
 
 ISSUE_SEVERITIES = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
 IMPACT_SEVERITIES = ["BLOCKER", "HIGH", "MEDIUM", "LOW", "INFO"]
@@ -146,8 +148,7 @@ def _format_measure_table(metrics: dict) -> str:
     return table
 
 def format_issues(issues: dict, project_id: str, include_issue_details: bool) -> {str, dict}:
-    with open("issues_table_template.html") as f:
-        document = f.read()
+    document = TEMPLATES.joinpath("issues_table_template.html").read_text()
 
     table, amounts = _format_issue_table(issues["issues"])
     severity_table = _format_severity_summary(amounts)
@@ -162,8 +163,7 @@ def format_issues(issues: dict, project_id: str, include_issue_details: bool) ->
     return document, amounts
 
 def format_overall(total_overall: dict, total_severity_amounts: dict) -> str:
-    with open("overall_data_template.html") as f:
-        document = f.read()
+    document = TEMPLATES.joinpath("overall_data_template.html").read_text()
     severity_table = _format_severity_summary(total_severity_amounts)
 
     total_table = _format_measure_table(total_overall)
@@ -191,7 +191,7 @@ if __name__ == "__main__":
 
     project_counter = 1 # For anonymizing project names
 
-    if pathlib.Path(args.project_id[0]).exists():
+    if Path(args.project_id[0]).exists():
         with open(args.project_id[0]) as f:
             projects = f.read().splitlines()
     else:
@@ -230,14 +230,12 @@ if __name__ == "__main__":
 
     overall= format_overall(overall_data, total_severity_amounts)
 
-    with open("report_template.html") as f:
-        document = f.read()
+    document = TEMPLATES.joinpath("report_template.html").read_text()
     document = document.replace("${DATE}", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     document = document.replace("${OVERALL}", overall)
     document = document.replace("${CONTENTS}", issues_data)
 
-    with open("report.html", "w") as f:
-        f.write(document)
+    Path("report.html").write_text(document)
 
     print(f"{len(projects)} projects analyzed.")
     print("Report generated successfully")
