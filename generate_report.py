@@ -56,16 +56,23 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact
     p = 1
     total_pages = 1
     issues = {}
+    file_counter = 1    # For anonymizing file names
+    file_names = {}
     while p <= total_pages:
         url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED&branch=main"
         data = _get(url, token)
         for issue in data["issues"]:
+            component = issue["component"]
             if anonymous:
-                issue["component"] = issue["component"].split(":", maxsplit=1)[1].split("/")[-1]
+                if component not in file_names:
+                    file_ending = component.split(".")[-1]
+                    file_names[component] = f"file_{file_counter}.{file_ending}"
+                    file_counter += 1
+                component = file_names[component]
             severity = issue["impacts"][0]["severity"] if impact_details else issue["severity"]
             issue_type = issue["impacts"][0]["softwareQuality"] if impact_qualities else issue["type"]
             issues[issue["key"]] = {
-                "component": issue["component"],
+                "component": component,
                 "message": html.escape(issue["message"]),
                 "severity": severity,
                 "type": issue_type,
