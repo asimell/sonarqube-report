@@ -29,6 +29,7 @@ def create_args() -> argparse.ArgumentParser:
     args.add_argument("--anonymous", help="Anonymize project names", action="store_true")
     args.add_argument("--impact-severities", help="Use impact severities instead of issue severities", action="store_true")
     args.add_argument("--impact-qualities", help="Use impact qualities instead of issue types", action="store_true")
+    args.add_argument("--branch", help="Branch to analyze", default="main")
     return args
 
 def _get(url: str, token: str) -> {dict}:
@@ -56,14 +57,14 @@ def _convert_to_readable_time(minutes: int) -> str:
 # DATA FETCHING
 ############################################
 
-def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact_details: bool, impact_qualities: bool) -> {dict, int, int}:
+def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact_details: bool, impact_qualities: bool, branch: str) -> {dict, int, int}:
     p = 1
     total_pages = 1
     issues = {}
     file_counter = 1    # For anonymizing file names
     file_names = {}
     while p <= total_pages:
-        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED&branch=main"
+        url = f"{host}/api/issues/search?componentKeys={project_id}&ps=500&p={p}&statuses=OPEN,CONFIRMED,REOPENED&branch={branch}"
         data = _get(url, token)
         for issue in data["issues"]:
             component = issue["component"]
@@ -227,7 +228,7 @@ if __name__ == "__main__":
 
     for project_key in projects:
         logger.info(f"Fetching data for project {project_key}")
-        data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous, args.impact_severities, args.impact_qualities)
+        data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous, args.impact_severities, args.impact_qualities, args.branch)
         data.update(fetch_metrics(args.host, project_key, args.token))
 
         # Formatting data

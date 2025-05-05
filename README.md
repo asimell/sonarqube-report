@@ -39,6 +39,7 @@ Report generated successfully
     (`BLOCKER`, `CRITICAL`, `MAJOR`, `MINOR`, `INFO`)
 - `--impact-qualities`: Whether to use issue impact software qualities (`SECURITY`, `RELIABILITY`, `MAINTAINABILITY`) rather than issue types
     (`CODE_SMELL`, `BUG`, `VULNERABILITY`)
+- `--branch`: SonarQube branch to analyze (default: `main`)
 
 ## Output
 
