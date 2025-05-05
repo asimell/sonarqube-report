@@ -8,8 +8,12 @@ import html
 from pathlib import Path
 
 from logging import Logger
+import logging
 
 logger = Logger(__name__)
+ConsoleOutputHandler = logging.StreamHandler()
+logger.addHandler(ConsoleOutputHandler)
+logger.setLevel(logging.INFO)
 
 TEMPLATES = Path("templates")
 
