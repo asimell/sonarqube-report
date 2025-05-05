@@ -20,7 +20,7 @@ Using a virtual environment is recommended.
 Example usage:
 
 ```sh
-$ token=$(echo -n "<your_token>:" | base64)   # NOTE! the trailing colon (:) is required after your token
+$ token="squ_example1234example4321"
 $ python generate_report.py --project-id <your_project_id> --token $token --host <host> --include-issue-details
 <your_project_id>
 1 projects analyzed.

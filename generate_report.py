@@ -1,6 +1,7 @@
 import sys
 import argparse
 import requests
+from requests.auth import HTTPBasicAuth
 from datetime import datetime
 import math
 import html
@@ -31,8 +32,7 @@ def create_args() -> argparse.ArgumentParser:
     return args
 
 def _get(url: str, token: str) -> {dict}:
-    headers = {"Authorization": f"Basic {token}"}
-    resp = requests.get(url, headers=headers)
+    resp = requests.get(url, auth=HTTPBasicAuth(token, ""))
     if resp.status_code != 200:
         print(f"Failed to fetch data: {resp.text}")
         sys.exit(1)
