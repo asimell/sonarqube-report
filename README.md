@@ -44,3 +44,6 @@ Report generated successfully
 
 The script will generate a report HTML file of SonarQube findings. The HTML file can then be saved as a PDF from the browser by printing it
 and saving as PDF.
+
+If you print with portrait orientation, the rightmost columns in the tables might end up a bit funky. Therefore, for best results, it's recommended
+to print in landscape orientation. If that doesn't fully do the trick, try saving with a slightly lowered scaling (e.g. 90%).
