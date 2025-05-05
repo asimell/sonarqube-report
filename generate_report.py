@@ -6,6 +6,10 @@ import math
 import html
 from pathlib import Path
 
+from logging import Logger
+
+logger = Logger(__name__)
+
 TEMPLATES = Path("templates")
 
 ISSUE_SEVERITIES = ["BLOCKER", "CRITICAL", "MAJOR", "MINOR", "INFO"]
@@ -205,14 +209,14 @@ if __name__ == "__main__":
         projects = args.project_id
 
     for project_key in projects:
-        print(project_key)
+        logger.info(f"Fetching data for project {project_key}")
         data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous, args.impact_severities, args.impact_qualities)
         data.update(fetch_metrics(args.host, project_key, args.token))
 
         # Formatting data
         if args.anonymous:
             project_key = f"Project {project_counter}"
-            print(f"==> {project_key}")
+            logger.info(f"==> {project_key}")
             project_counter += 1
         t, amounts = format_issues(data, project_key, args.include_issue_details)
         total_effort += effort
@@ -244,5 +248,5 @@ if __name__ == "__main__":
 
     Path("report.html").write_text(document)
 
-    print(f"{len(projects)} projects analyzed.")
-    print("Report generated successfully")
+    logger.info(f"{len(projects)} projects analyzed.")
+    logger.info("Report generated successfully.")
