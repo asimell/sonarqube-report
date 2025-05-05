@@ -75,18 +75,26 @@ def fetch_issues(host: str, project_id: str, token: str, anonymous: bool, impact
                 component = file_names[component]
             severity = issue["impacts"][0]["severity"] if impact_details else issue["severity"]
             issue_type = issue["impacts"][0]["softwareQuality"] if impact_qualities else issue["type"]
-            issues[issue["key"]] = {
+
+            issue_entry = {
                 "component": component,
                 "message": html.escape(issue["message"]),
                 "severity": severity,
                 "type": issue_type,
-                "startline": issue["textRange"]["startLine"],
-                "endline": issue["textRange"]["endLine"],
-                "startoffset": issue["textRange"]["startOffset"],
-                "endoffset": issue["textRange"]["endOffset"],
                 "rule": issue["rule"],
                 "effort": issue["effort"]
             }
+
+            if "textRange" in issue:
+                issue_entry.update({
+                    "startline": issue["textRange"]["startLine"],
+                    "endline": issue["textRange"]["endLine"],
+                    "startoffset": issue["textRange"]["startOffset"],
+                    "endoffset": issue["textRange"]["endOffset"],
+                })
+
+            issues[issue["key"]] = issue_entry
+
         total_pages = math.ceil(data["total"] / data["ps"])
         p += 1
     project_issues = {"issues": issues}
@@ -143,11 +151,20 @@ def _format_severity_summary(amounts: dict) -> str:
 def _format_issue_table(issues: dict) -> {str, dict}:
     table = "<table><tr><th>Component</th><th>Message</th><th>Severity</th><th>Type</th><th>Lines</th><th>Rule</th><th>Effort</th></tr>"
     amounts = {severity: [0 for _ in TYPES] for severity in SEVERITIES}
-    for severity in SEVERITIES:
-        for _, issue in issues.items():
-            if issue["severity"] == severity:
-                amounts[severity][TYPES.index(issue["type"])] += 1
-                table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>Lines: {issue['startline']}-{issue['endline']}\nOffset: {issue['startoffset']}-{issue['endoffset']}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
+    # Sort issues by severity first, then by component
+    sorted_issues = sorted(issues.items(), key=lambda item: (SEVERITIES.index(item[1]['severity']), item[1]['component']))
+
+    for _, issue in sorted_issues:
+        amounts[issue['severity']][TYPES.index(issue["type"])] += 1
+
+        # Check if textRange (key in sonar web api) related keys exist
+        if 'startline' in issue:
+            lines_info = f"Lines: {issue['startline']}-{issue['endline']}<br>Offset: {issue['startoffset']}-{issue['endoffset']}"
+        else:
+            lines_info = "N/A"
+
+        table += f"<tr><td class='small'>{issue['component']}</td><td>{issue['message']}</td><td>{issue['severity']}</td><td>{issue['type']}</td><td>{lines_info}</td><td>{issue['rule']}</td><td>{issue['effort']}</td></tr>"
+
     table += "</table>"
     return table, amounts
 
