@@ -206,7 +206,7 @@ def format_overall(total_overall: dict, total_severity_amounts: dict) -> str:
     return document
 
 
-if __name__ == "__main__":
+def main():
     args = create_args().parse_args()
 
     global TYPES
@@ -274,3 +274,6 @@ if __name__ == "__main__":
 
     logger.info(f"{len(projects)} projects analyzed.")
     logger.info("Report generated successfully.")
+
+if __name__ == "__main__":
+    main()
