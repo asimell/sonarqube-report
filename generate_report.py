@@ -175,7 +175,7 @@ def _format_issue_table(issues: dict) -> {str, dict}:
 
 def _format_measure_table(metrics: dict) -> str:
     table = "<table><tr><th>Metric</th><th>Value</th></tr>"
-    for metric, value in metrics.items():
+    for metric, value in sorted(metrics.items()):
         table += f"<tr><td>{metric}</td><td>{value}</td></tr>"
     table += "</table>"
     return table
