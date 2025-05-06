@@ -231,15 +231,17 @@ if __name__ == "__main__":
         projects = args.project_id
 
     for project_key in projects:
-        logger.info(f"Fetching data for project {project_key}")
+        key = f"Project {project_counter}" if args.anonymous else project_key
+        project_counter += args.anonymous
+        logger.info(f"Fetching data for project {key}")
+        logger.debug(project_key)
+
         data, effort, debt = fetch_issues(args.host, project_key, args.token, args.anonymous, args.impact_severities, args.impact_qualities, args.branch)
         data.update(fetch_metrics(args.host, project_key, args.token))
 
         # Formatting data
         if args.anonymous:
-            project_key = f"Project {project_counter}"
-            logger.info(f"==> {project_key}")
-            project_counter += 1
+            project_key = key
         t, amounts = format_issues(data, project_key, args.include_issue_details)
         total_effort += effort
         total_debt += debt
