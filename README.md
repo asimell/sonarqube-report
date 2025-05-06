@@ -22,9 +22,9 @@ Example usage:
 ```sh
 $ token="squ_example1234example4321"
 $ python generate_report.py --project-id <your_project_id> --token $token --host <host> --include-issue-details
-<your_project_id>
+Fetching data for project <your_project_id>
 1 projects analyzed.
-Report generated successfully
+Report generated successfully.
 ```
 
 ### Parameters
